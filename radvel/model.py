@@ -235,12 +235,15 @@ class Vector(object):
                 names[self.indices[key]] = key
             except KeyError:
                 pass
-        self.names = [i for i in names if type(i) == str]
+        self.names = [i for i in names if type(i) == str or type(i) == np.str_]
 
     def vector_to_dict(self):
         for key in self.params.keys():
             try:
                 self.params[key].value = self.vector[self.indices[key]][0]
+                self.params[key].vary = self.vector[self.indices[key]][1]
+                self.params[key].mcmcscale = self.vector[self.indices[key]][2]
+                self.params[key].linear = self.vector[self.indices[key]][3]
             except KeyError:
                 pass
 
