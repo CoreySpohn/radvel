@@ -452,6 +452,7 @@ def mcmc(post, nwalkers=50, nrun=10000, ensembles=8, checkinterval=50, minAfacto
                 ).format(statevars.ncomplete, tdiff, units)
                 _closescr()
                 print(msg)
+                converged = True
                 break
 
         print("\n")
@@ -462,6 +463,7 @@ def mcmc(post, nwalkers=50, nrun=10000, ensembles=8, checkinterval=50, minAfacto
             )
             _closescr()
             print(msg)
+            converged = False
         elif not statevars.ismixed:
             msg = (
                 "MCMC: WARNING: chains did not pass convergence tests. They are "
@@ -469,6 +471,7 @@ def mcmc(post, nwalkers=50, nrun=10000, ensembles=8, checkinterval=50, minAfacto
             )
             _closescr()
             print(msg)
+            converged = False
 
         preshaped_chain = np.dstack(statevars.chains)
         df = pd.DataFrame(
@@ -476,6 +479,7 @@ def mcmc(post, nwalkers=50, nrun=10000, ensembles=8, checkinterval=50, minAfacto
             columns=post.name_vary_params())
         preshaped_ln = np.hstack(statevars.lnprob)
         df['lnprobability'] = preshaped_ln.reshape(preshaped_chain.shape[1]*preshaped_chain.shape[2])
+        df['converged'] = np.repeat(converged, df.shape[0])
         df = df.iloc[::thin]
 
         statevars.factor = [minAfactor] * len(statevars.autosamples)
