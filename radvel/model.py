@@ -3,6 +3,8 @@ from collections import OrderedDict
 
 from radvel import kepler
 from radvel.basis import Basis
+import keplertools.fun as kt
+from . import _rv
 
 
 texdict = {
