@@ -342,6 +342,25 @@ def _standard_rv_calc(t,params,vector,planet_num=None):
         return vel
 
 
+def _standard_rv_calc_new(t,params,vector,planet_num=None):
+    params_synth = params.basis.v_to_synth(vector)
+
+    n5 = 5 * params.num_planets
+    per = params_synth[0:n5:5, 0]
+    tp = params_synth[1: 1 + n5: 5, 0]
+    e = params_synth[2: 2 + n5: 5, 0]
+    w = params_synth[3: 3 + n5: 5, 0]
+    k = params_synth[4: 4 + n5: 5, 0]
+    vel = kt.calc_RV_from_time(t, tp, per, e, w, k)
+
+    return vel
+
+
+def _c_rv_calc(t, params, vector):
+    vel = _rv.calc_rv_from_params(t, vector.vector, params.basis.name.encode("utf-8"), params.num_planets)
+    return vel
+
+
 class RVModel(GeneralRVModel):
     """
     Generic RV Model
@@ -353,3 +372,28 @@ class RVModel(GeneralRVModel):
     def __init__(self, params, time_base=0):
         super(RVModel,self).__init__(params,_standard_rv_calc,time_base)
         self.num_planets=params.num_planets
+
+class RVModel_c(GeneralRVModel):
+    """
+    Generic RV Model
+
+    This class defines the methods common to all RV modeling
+    classes. The different RV models, with different
+    parameterizations, all inherit from this class.
+    """
+    def __init__(self, params, time_base=0):
+        super(RVModel_c,self).__init__(params,_rv.calc_rv_forward_model,time_base)
+        self.num_planets=params.num_planets
+
+
+    def __call__(self,t,*args,**kwargs):
+        """Compute the signal
+
+        Args:
+            t (array of floats): Timestamps to calculate the model
+
+        Returns:
+            vel (array of floats): model at each time in `t`
+        """
+        vel = _rv.model_call_c(t, self.params, self.vector, self.time_base, self.jit_index, self.gamma_index, *args, **kwargs)
+        return vel

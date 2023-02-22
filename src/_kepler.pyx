@@ -12,9 +12,10 @@ np.import_array()
 
 # Wrapping kepler(M,e) a simple function that takes two doubles as
 # arguments and returns a double
-cdef extern from "kepler.c":
+cdef extern from "kepler.h":
     double kepler(double M, double e)
     double rv_drive(double t, double per, double tp, double e, double cosom, double sinom, double k )
+    void eccanom_orvara(double E[], double sinE[], double cosE[], const double M[], const double e, const int n);
 
 DTYPE = np.float64
 ctypedef np.float64_t DTYPE_t
@@ -47,4 +48,3 @@ def rv_drive_array(np.ndarray[DTYPE_t, ndim=1] t, double per, double tp,
         rv[i] = rv_drive(t[i], per, tp, e, cosom, sinom, k)
 
     return rv
-

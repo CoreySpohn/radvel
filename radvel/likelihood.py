@@ -3,6 +3,8 @@ import radvel.model
 from radvel import gp
 from scipy.linalg import cho_factor, cho_solve
 import warnings
+import math
+from . import _rv
 
 
 _has_celerite = gp._try_celerite()
@@ -311,6 +313,102 @@ class CompositeLikelihood(Likelihood):
         return err
 
 
+# class RVLikelihood(Likelihood):
+#     """RV Likelihood
+#     The Likelihood object for a radial velocity dataset
+#     Args:
+#         model (radvel.model.RVModel): RV model object
+#         t (array): time array
+#         vel (array): array of velocities
+#         errvel (array): array of velocity uncertainties
+#         suffix (string): suffix to identify this Likelihood object
+#            useful when constructing a `CompositeLikelihood` object.
+#     """
+#     def __init__(self, model, t, vel, errvel, suffix='', decorr_vars=[],
+#                  decorr_vectors=[], **kwargs):
+#         self.gamma_param = 'gamma'+suffix
+#         self.jit_param = 'jit'+suffix
+#         self.extra_params = [self.gamma_param, self.jit_param]
+
+#         if suffix.startswith('_'):
+#             self.suffix = suffix[1:]
+#         else:
+#             self.suffix = suffix
+
+#         self.telvec = np.array([self.suffix]*len(t))
+
+#         self.decorr_params = []
+#         self.decorr_vectors = decorr_vectors
+#         if len(decorr_vars) > 0:
+#             self.decorr_params += ['c1_'+d+suffix for d in decorr_vars]
+
+#         super(RVLikelihood, self).__init__(
+#             model, t, vel, errvel, extra_params=self.extra_params,
+#             decorr_params=self.decorr_params, decorr_vectors=self.decorr_vectors
+#             )
+
+#         self.gamma_index = self.vector.indices[self.gamma_param]
+#         self.jit_index = self.vector.indices[self.jit_param]
+
+#     def residuals(self):
+#         """Residuals
+#         Data minus model
+#         """
+#         mod = self.model(self.x)
+
+
+#         if self.vector.vector[self.gamma_index][3] and not self.vector.vector[self.gamma_index][1]:
+#             sum_sq = 1/(self.yerr**2 + self.vector.vector[self.jit_index][0]**2)
+#             ztil = np.sum((self.y - mod)*sum_sq) / np.sum(sum_sq)
+#             # ztil = np.sum((self.y - mod)/(self.yerr**2 + self.vector.vector[self.jit_index][0]**2)) / \
+#             #        np.sum(1/(self.yerr**2 + self.vector.vector[self.jit_index][0]**2))
+#             if np.isnan(ztil):
+#                  ztil = 0.0
+#             self.vector.vector[self.gamma_index][0] = ztil
+
+#         res = self.y - self.vector.vector[self.gamma_index][0] - mod
+
+#         if len(self.decorr_params) > 0:
+#             for parname in self.decorr_params:
+#                 var = parname.split('_')[1]
+#                 pars = []
+#                 for par in self.decorr_params:
+#                     if var in par:
+#                         pars.append(self.vector.vector[self.vector.indices[par]][0])
+#                 pars.append(0.0)
+#                 if np.isfinite(self.decorr_vectors[var]).all():
+#                     vec = self.decorr_vectors[var] - np.mean(self.decorr_vectors[var])
+#                     p = np.poly1d(pars)
+#                     res -= p(vec)
+#         return res
+
+#     def errorbars(self):
+#         """
+#         Return uncertainties with jitter added
+#         in quadrature.
+#         Returns:
+#             array: uncertainties
+#         """
+#         return np.sqrt(self.yerr**2 + self.vector.vector[self.jit_index][0]**2)
+
+#     def logprob(self):
+#         """
+#         Return log-likelihood given the data and model.
+#         Priors are not applied here.
+#         Returns:
+#             float: Natural log of likelihood
+#         """
+
+#         sigma_jit = self.vector.vector[self.jit_index][0]
+#         residuals = self.residuals()
+#         loglike = loglike_jitter(residuals, self.yerr, sigma_jit)
+
+#         if self.vector.vector[self.gamma_index][3] \
+#                 and not self.vector.vector[self.gamma_index][1]:
+#             sigz = 1/np.sum(1 / (self.yerr**2 + sigma_jit**2))
+#             loglike += np.log(np.sqrt(math.tau * sigz))
+
+#         return loglike
 class RVLikelihood(Likelihood):
     """RV Likelihood
     The Likelihood object for a radial velocity dataset
@@ -324,6 +422,7 @@ class RVLikelihood(Likelihood):
     """
     def __init__(self, model, t, vel, errvel, suffix='', decorr_vars=[],
                  decorr_vectors=[], **kwargs):
+        assert decorr_vars == [], "Does not support decorrelation"
         self.gamma_param = 'gamma'+suffix
         self.jit_param = 'jit'+suffix
         self.extra_params = [self.gamma_param, self.jit_param]
@@ -335,46 +434,44 @@ class RVLikelihood(Likelihood):
 
         self.telvec = np.array([self.suffix]*len(t))
 
-        self.decorr_params = []
-        self.decorr_vectors = decorr_vectors
-        if len(decorr_vars) > 0:
-            self.decorr_params += ['c1_'+d+suffix for d in decorr_vars]
+        # self.decorr_params = []
+        # self.decorr_vectors = decorr_vectors
+        # if len(decorr_vars) > 0:
+        #     self.decorr_params += ['c1_'+d+suffix for d in decorr_vars]
+        # super(RVLikelihood_c, self).__init__(
+        #     model, t, vel, errvel, extra_params=self.extra_params,
+        #     decorr_params=self.decorr_params, decorr_vectors=self.decorr_vectors
+        #     )
+        self.model = model
+        self.vector = model.vector
+        self.params = model.params
+        self.x = np.array(t)  # Variables must be arrays.
+        self.y = np.array(vel)  # Pandas data structures lead to problems.
+        self.yerr = np.array(errvel)
+        n = self.vector.vector.shape[0]
+        for key in self.extra_params:
+            if key not in self.params.keys():
+                self.params[key] = radvel.model.Parameter(value=0.0)
+            if key not in self.vector.indices:
+                self.vector.indices.update({key: n})
+                n += 1
+        self.vector.dict_to_vector()
+        self.vector.vector_names()
 
-        super(RVLikelihood, self).__init__(
-            model, t, vel, errvel, extra_params=self.extra_params,
-            decorr_params=self.decorr_params, decorr_vectors=self.decorr_vectors
-            )
-
+        self.uparams = None
         self.gamma_index = self.vector.indices[self.gamma_param]
         self.jit_index = self.vector.indices[self.jit_param]
+        self.model.jit_index = self.jit_index
+        self.model.gamma_index = self.gamma_index
 
     def residuals(self):
         """Residuals
         Data minus model
         """
-        mod = self.model(self.x)
+        res = _rv.residuals_c(self.x, self.y, self.yerr, self.params,
+                              self.vector, self.model.time_base, self.jit_index,
+                              self.gamma_index)
 
-        if self.vector.vector[self.gamma_index][3] and not self.vector.vector[self.gamma_index][1]:
-            ztil = np.sum((self.y - mod)/(self.yerr**2 + self.vector.vector[self.jit_index][0]**2)) / \
-                   np.sum(1/(self.yerr**2 + self.vector.vector[self.jit_index][0]**2))
-            if np.isnan(ztil):
-                 ztil = 0.0
-            self.vector.vector[self.gamma_index][0] = ztil
-
-        res = self.y - self.vector.vector[self.gamma_index][0] - mod
-
-        if len(self.decorr_params) > 0:
-            for parname in self.decorr_params:
-                var = parname.split('_')[1]
-                pars = []
-                for par in self.decorr_params:
-                    if var in par:
-                        pars.append(self.vector.vector[self.vector.indices[par]][0])
-                pars.append(0.0)
-                if np.isfinite(self.decorr_vectors[var]).all():
-                    vec = self.decorr_vectors[var] - np.mean(self.decorr_vectors[var])
-                    p = np.poly1d(pars)
-                    res -= p(vec)
         return res
 
     def errorbars(self):
@@ -394,14 +491,17 @@ class RVLikelihood(Likelihood):
             float: Natural log of likelihood
         """
 
-        sigma_jit = self.vector.vector[self.jit_index][0]
-        residuals = self.residuals()
-        loglike = loglike_jitter(residuals, self.yerr, sigma_jit)
+        loglike = _rv.logprob_c(self.x, self.y, self.yerr, self.params,
+                                self.vector, self.model.time_base, self.jit_index,
+                                self.gamma_index)
+        # sigma_jit = self.vector.vector[self.jit_index, 0]
+        # residuals = self.residuals()
+        # loglike = loglike_jitter(residuals, self.yerr, sigma_jit)
 
-        if self.vector.vector[self.gamma_index][3] \
-                and not self.vector.vector[self.gamma_index][1]:
-            sigz = 1/np.sum(1 / (self.yerr**2 + sigma_jit**2))
-            loglike += np.log(np.sqrt(2 * np.pi * sigz))
+        # if self.vector.vector[self.gamma_index][3] \
+        #         and not self.vector.vector[self.gamma_index][1]:
+        #     sigz = 1/np.sum(1 / (self.yerr**2 + sigma_jit**2))
+        #     loglike += np.log(np.sqrt(math.tau * sigz))
 
         return loglike
 

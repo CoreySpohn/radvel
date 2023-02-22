@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from collections import OrderedDict
 from radvel.orbit import timeperi_to_timetrans, timetrans_to_timeperi
+from . import _rv
 import radvel.model
 
 
