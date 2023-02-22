@@ -19,7 +19,7 @@ def get_property(prop, project):
 
 
 extensions = [Extension("radvel._kepler", ["src/_kepler.pyx", "src/kepler.c"]),
-              Extension("radvel._rv", ["src/_rv.pyx", "src/rv.c", "src/cordic.c"])]
+              Extension("radvel._rv", ["src/_rv.pyx", "src/rv.c"])]
 
 reqs = []
 for line in open('requirements.txt', 'r').readlines():
