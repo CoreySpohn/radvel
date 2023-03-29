@@ -708,11 +708,3 @@ double logprob(const double t[], const double rv[], const double rv_err[],
   }
   return _logprob;
 }
-
-// https://github.com/scipy/scipy/blob/v1.10.1/scipy/optimize/_minimize.py#L687
-// res = _minimize_powell(fun, x0, args, callback, bounds, **options)
-// https://github.com/scipy/scipy/blob/v1.10.1/scipy/optimize/_optimize.py
-// def _minimize_powell(func, x0, args=(), callback=None, bounds=None,
-//                      xtol=1e-4, ftol=1e-4, maxiter=None, maxfev=None,
-//                      disp=False, direc=None, return_all=False,
-//                      **unknown_options):
